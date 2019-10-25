@@ -15,15 +15,18 @@
 #include <pthread.h>
 #include "quickselect.h"
 
-#define N 35
+#define N 234567
 #define D 2
 
 // PTHREADS
-#define NOTHREADS 4
+#define NOTHREADS 3
+
+
 int threadCounter = -1;
-double *distance ;
+//double *distance;
 pthread_mutex_t mux;
 pthread_attr_t attr;
+clock_t t ;
 
 typedef struct vpTree {
   double * data; //2d array containing all the points
@@ -38,7 +41,9 @@ typedef struct distances {
   int n ;
   int d ;
   double *points ;
-}distances;
+  double *distance;
+
+} distances;
 
 
 double * generate_points(int n, int d) {
@@ -56,11 +61,10 @@ double * generate_points(int n, int d) {
   return points;
 }
 
-
 double * distanceCalculationSer(double * X, double * vPoint, int n, int d) {
 
   double * rDistance = (double * ) calloc(n - 1, sizeof(double));
-  double temp = 0;
+
   for (int i = 0; i < n - 1; i++) {
     for (int j = 0; j < d; j++) {
       //printf("Value of power : %lf ",pow((vPoint[j]-*(X + i*d + j)),2));
@@ -71,66 +75,134 @@ double * distanceCalculationSer(double * X, double * vPoint, int n, int d) {
   return rDistance;
 }
 
+void treePrint(distances *dist ) {
+  //PRINTING THE POINTS
+    printf("NEW VPTREE NODE\n----------------\n\n");
+    for (int i = 0; i < (dist->n+1); i++) {
+      printf("POINT NO.%d: (", i + 1);
+      for (int j = 0; j < dist->d; j++) {
+        printf("%lf, ", *(dist->points + i * dist->d + j));
+      }
+      if (i < dist->n ) {
+        printf("), Distance from Vantage Point: %lf \n", dist->distance[i]);
+      } else {
+        printf("), VANTAGE POINT\n");
+      }
+    }
+}
+void setTree(vpTree *tree , double *X , int n , int d ){
+
+  tree->data = (double * ) malloc(n * d * sizeof(double));
+  tree->vp = (double * ) malloc(d * sizeof(double));
+  tree->data = X;
+  for (int j = 0; j < d; j++) {
+    tree->vp[j] = * (X + (n-1) * d + j);
+  }
+  tree->idxVp = n - 1;
+}
+void setDistanceStruct(distances *dist , double *X , int n , int d ){
+  //dist->points=(double * ) malloc(n * d * sizeof(double));
+  dist->distance =  (double * ) calloc(n - 1, sizeof(double));
+  dist->points=X;
+  dist->n = n-1;
+  dist->d = d ;
+}
+void printSubTree(double *XSubTree ,int Counter , int d ) {
+  if (Counter == 0) {
+    printf("  NULL\n");
+  }
+  else {
+    for (int i = 0; i < Counter; i++) {
+      for (int j = 0; j < d; j++) {
+        printf("  %8.6lf ", *(XSubTree + i * d + j));
+      }
+      printf("\n");
+    }
+  }
+}
+void createNewX(double *Xinner , double *Xouter , double *X , int n , int d , double *distance, double median){
+  int inCounter = 0;
+  int outCounter = 0;
+
+  for (int i = 0; i < n - 1; i++) {
+    if (distance[i] <= median) {
+      for (int j = 0; j < d; j++) {
+        *(Xinner + inCounter * d + j) = * (X + i * d + j);
+      }
+      inCounter++;
+    }
+    else {
+      for (int j = 0; j < d; j++) {
+        *(Xouter + outCounter * d + j) = * (X + i * d + j);
+      }
+      outCounter++;
+    }
+  }
+}
 // PTHREADS
 void * distanceCalculationPar(void *data) {
-    distances *localDist= (distances *) data;
-    int i,j,start,end,iterations=0 , lastIt;
+  distances *localDist= (distances *) data;
+  int i,j,start,end,iterations=0 , lastIt;
 
+  double sumDist=0;
 
-    //int n=(sizeof(points)/sizeof(long))/D; //number of rows//
+  // PX EIXA 50 SHMEIA
+  // ENA TO VANTAGE POINT 49
+  // ME AUTON TON TROPO KANEI 49/8 TO PAEI STO 7
+  // OPOTE TO TELEUTAIO THREAD DEN THA EXEI TIPOTA NA KANEI
 
-    double sumDist=0;
+  pthread_mutex_lock(&mux);
+  if (threadCounter==-1 || threadCounter==NOTHREADS-1)
+    threadCounter=0;
+  else if(threadCounter<NOTHREADS-1)
+    threadCounter++;
+  pthread_mutex_unlock(&mux);
 
-    pthread_mutex_lock(&mux);
+  if(localDist->n%NOTHREADS ==0){
+    iterations = ((localDist->n)/NOTHREADS);
+    start = threadCounter *iterations;
+    end = start + iterations;
+    printf("Thread %d is doing iterations %d to %d \n",threadCounter,start,end-1);
+  }
+  else {
+    iterations= round((localDist->n)/NOTHREADS);
+    //printf("sskakk %d \n", iterations);
+    lastIt = localDist->n - (NOTHREADS-1)*iterations ;
 
-         if (threadCounter==-1 || threadCounter==NOTHREADS-1)
-       threadCounter=0;
-         else if(threadCounter<NOTHREADS-1)
-     threadCounter++;
-    pthread_mutex_unlock(&mux);
-
-        if(localDist->n%NOTHREADS ==0){
-          iterations = ((localDist->n)/NOTHREADS) ;
-      start = threadCounter *iterations;
-      end = start + iterations;
+    if(threadCounter == NOTHREADS-1){
+      start = (threadCounter)*iterations;
+      end = start+lastIt;
       printf("Thread %d is doing iterations %d to %d \n",threadCounter,start,end-1);
     }
     else{
-          iterations=(int)((localDist->n)/NOTHREADS) + 1;
-      //printf("sskakk %d \n", iterations);
-          lastIt = localDist->n - (NOTHREADS-1)*iterations ;
-
-          if(threadCounter == NOTHREADS-1){
-        start = (threadCounter)*iterations;
-        end = start+lastIt;
-          printf("Thread %d is doing iterations %d to %d \n",threadCounter,start,end-1);
-      }
-      else{
-        start = (threadCounter)*iterations;
-        end = start + iterations;
-          printf("Thread %d is doing iterations %d to %d \n",threadCounter,start,end-1);
-      }
-    }
-
-    for (i=start; i<end; i++){
-      for(j=0; j<D; j++){
-        sumDist= sumDist + (*(localDist->points + localDist->n*localDist->d + j) - *(localDist->points + i*localDist->d + j)) * (*(localDist->points + localDist->n*localDist->d + j) - *(localDist->points + i*localDist->d + j));
-      }
-      distance[i]=sqrt(sumDist);
-
+      start = (threadCounter)*iterations;
+      end = start + iterations;
+      printf("Thread %d is doing iterations %d to %d \n",threadCounter,start,end-1);
     }
   }
-
+  for (i=start; i<end; i++){
+    for(j=0; j<localDist->d; j++){
+      sumDist= sumDist + (*(localDist->points + (localDist->n+1)*localDist->d + j) - *(localDist->points + i*localDist->d + j)) * (*(localDist->points + (localDist->n+1)*localDist->d + j) - *(localDist->points + i*localDist->d + j));
+    }
+    localDist->distance[i]=sqrt(sumDist);
+    sumDist =0;
+  //  printf("The i is : %d , distance is : %lf  \n" , i , distance[i]);
+  }
+}
 struct vpTree * buildvp(double * X, int n, int d) {
-
+//Leaf state :*
   if (n == 1)
     return NULL;
 
+//Memory allocation
   distances *dist=(distances *)malloc(sizeof(distances));
   vpTree *p = (vpTree * ) malloc(sizeof(vpTree));
+
+//Counters for Inner and Outer subtree
   int numberOfOuter = 0;
   int numberOfInner = 0;
-  //double * distance;
+
+//Variables
   double median;
   double * Xinner = NULL;
   double * Xouter = NULL;
@@ -138,65 +210,43 @@ struct vpTree * buildvp(double * X, int n, int d) {
   // PTHREADS
   pthread_t thr[NOTHREADS];
 
-
-  dist->points=(double * ) malloc(n * d * sizeof(double));
-  dist->points=X;
-  dist->n = n-1;
-  dist->d = d ;
-
-
-
-
-  p->data = (double * ) malloc(n * d * sizeof(double));
-  p->vp = (double * ) malloc(d * sizeof(double));
-  p->data = X;
-  for (int j = 0; j < d; j++) {
-    p->vp[j] = * (X + (n-1) * d + j);
-  }
-  p->idxVp = n - 1;
-
-
-  distance =  (double * ) calloc(n - 1, sizeof(double));
+  setDistanceStruct(dist , X , n ,  d );
+  setTree(p, X, n, d);
 
   //THRESHOLD EAN O ARITHMOS TWN SHMEIWN PROS UPOLOGISMO
   // EINAI MIKROTEROS APO TON ARITHMO TO THREADS POU XRHSIMOPOIW
   // PANE SEIRIAKA
   // H ALLIWS RUTHISMIH GIA ELATTWSH TWN ARITHO TWN THREADS
-if(n-2<NOTHREADS){
-  distance = distanceCalculationSer(X, p->vp, n, d);
-}
-else{
-  //PTHREADS
-  for(int i=0; i<NOTHREADS; i++){
-    pthread_create(&thr[i], &attr, distanceCalculationPar, (void *)dist);
+
+//  distance = distanceCalculationSer(X, p->vp, n, d);
+  //t = clock();
+  if(n-1<NOTHREADS){
+    dist->distance = distanceCalculationSer(X, p->vp, n, d);
+  }
+  else{
+    //PTHREADS
+    for(int i=0; i<NOTHREADS; i++){
+      pthread_create(&thr[i], &attr, distanceCalculationPar, (void *)dist);
+    }
+
+    for(int i=0; i<NOTHREADS; i++){
+      pthread_join(thr[i],NULL);
+    }
+    //pthread_exit(NULL);
   }
 
-  for(int i=0; i<NOTHREADS; i++){
-    pthread_join(thr[i],NULL);
-  }
-}
+//  t = clock() - t;
+  // time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+//  printf("TIME IN PARALLEL  : %lf \n" , time_taken);
+
   //threadCounter = -1;
-  median = qselect(distance, n - 1, (int)((n - 2) / 2));
+  median = qselect(dist->distance, n - 1, (int)((n - 2) / 2));
 
   p->md = median;
 
+  treePrint(dist);
 
-  //PRINTING THE POINTS
-    printf("NEW VPTREE NODE\n----------------\n\n");
-    for (int i = 0; i < n; i++) {
-      printf("POINT NO.%d: (", i + 1);
-      for (int j = 0; j < d; j++) {
-        printf("%lf, ", *(X + i * d + j));
-      }
-      if (i < n - 1) {
-        printf("), Distance from Vantage Point: %lf \n", distance[i]);
-      } else {
-        printf("), VANTAGE POINT\n");
-      }
-    }
-
-
-  printf("MEDIAN : %lf \n\n", median);
+//  printf("MEDIAN : %lf \n\n", median);
 
   numberOfOuter = (int)((n - 1) / 2);
   numberOfInner = n - 1 - numberOfOuter;
@@ -208,43 +258,18 @@ else{
     Xouter = (double * ) malloc(numberOfOuter * d * sizeof(double));
   }
 
-  int inCounter = 0; //number of Inner points//
-  int outCounter = 0; //number of Outer points//
-  for (int i = 0; i < n - 1; i++) {
-    if (distance[i] <= p->md) {
-      for (int j = 0; j < d; j++) {
-        *(Xinner + inCounter * d + j) = * (X + i * d + j);
-      }
-      inCounter++;
-    } else {
-      for (int j = 0; j < d; j++) {
-        *(Xouter + outCounter * d + j) = * (X + i * d + j);
-      }
-      outCounter++;
-    }
-  }
+createNewX( Xinner , Xouter , X , n , d , dist->distance , p->md);
 
-  printf("->XINNER  :\n");
-  for (int i = 0; i < inCounter; i++) {
-    for (int j = 0; j < d; j++) {
-      printf("  %8.6lf ", *(Xinner + i * d + j));
-    }
-    printf("\n");
-  }
+ printf("->XINNER  :\n");
+ printSubTree(Xinner, numberOfInner , d);
 
-  printf("->XOUTER  :\n");
-  if (outCounter == 0) {
-    printf("  NULL\n");
-  } else
-  for (int i = 0; i < outCounter; i++) {
-    for (int j = 0; j < d; j++) {
-      printf("  %8.6lf ", *(Xouter + i * d + j));
-    }
-    printf("\n");
-  }
+ printf("->XOUTER  :\n");
+printSubTree(Xouter , numberOfOuter , d);
 
   printf("\n\n");
- free(distance);
+//free(distance);
+ //  printf("The distance  array size is  %d  \n" , (int)sizeof(distance) );
+  free(dist);
   if (Xinner != NULL) {
     p->inner = buildvp(Xinner, numberOfInner, d);
   }
@@ -254,6 +279,9 @@ else{
 
   return p;
 }
+
+
+
 
 vpTree * getInner(vpTree * T) {
   return T->inner;
