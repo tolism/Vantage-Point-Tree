@@ -9,7 +9,7 @@
 
 
 #define N 1000000
-#define D 4
+#define D 2
 
 
 typedef struct vptree {
