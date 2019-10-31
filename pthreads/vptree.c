@@ -32,11 +32,11 @@ typedef struct param {
 
 pthread_mutex_t mux;
 pthread_attr_t attr;
+
+
 volatile int activeThreads = 0;
-
-
-
 volatile int threadCounter = -1;
+
 pthread_mutex_t mux;
 pthread_mutex_t mux1;
 pthread_attr_t attr;
@@ -69,7 +69,7 @@ void * distanceCalculationPar(void *data) {
   int i,j,start,end,iterations=0 , lastIt;
 
   double sumDist=0;
-  int localThreadCounter = 0 ;
+  int localThreadCounter = 0;
 
   pthread_mutex_lock(&mux);
   if (threadCounter==-1 || threadCounter==NOTHREADS-1){
@@ -160,8 +160,6 @@ void * recBuild(void * arg) {
   }
   p->idxVp = x->idx[x->n-1];
 
-
-
 //THRESHOLD TO GO SERIAL
    if(x->n<300000){
      for(int i = 0; i < x->n-1; i++){
@@ -180,7 +178,6 @@ void * recBuild(void * arg) {
 
   median = qselect(x->distances, x->n - 1, (int)((x->n - 2) / 2));
   p->md = median;
-
 
 
   numberOfOuter = (int)((x->n - 1) / 2);
