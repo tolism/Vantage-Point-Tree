@@ -90,6 +90,7 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
   vptree *p = (vptree * ) malloc(sizeof(vptree));
   int numberOfOuter = 0;
   int numberOfInner = 0;
+
   double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
   double median;
@@ -111,7 +112,8 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
 
   setTree(p,X,idx,n,d);
 
-#pragma omp parallel for
+#pragma omp parallel for  schedule(static,4) num_threads(2)
+//schedule(static,250000) num_threads(8)
   for (int i = 0; i < n-1; i++){
     distance[i]=distanceCalculation((X + i * d),p->vp,n,d);
   }
@@ -168,7 +170,7 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
 
   #pragma omp task shared(p)
     p->outer =  recBuild(Xouter, outerIdx, numberOfOuter, d);
-  #pragma omp taskwait
+
 
   return p;
 }
