@@ -13,6 +13,9 @@
 #include <math.h>
 #include <assert.h>
 #include "vptree.h"
+#include <sys/time.h>
+
+struct timeval startwtime, endwtime;
 
 /* #define VERBOSE */
 
@@ -175,16 +178,17 @@ int verifyTree(vptree *T, double *vp, node **stack, double md, int isInner,
 
   // update list of indices
   int idx = getIDX(T);
+  //printf("MPHKAAAA >>IDX: %d,  MD: %lf\n", idx, getMD(T));
   if (idx < n){
     foundInTree[ idx ] = 1;
-}
-
-
+    //printf("MPHKAAAA >>IDX: %d,  MD: %lf\n", idx, getMD(T));
+  }
 
   // validate distance to parent
   if (isInner)
     isValid = dist(vp, getVP(T), d) <= md;
-
+  else
+    isValid = dist(vp, getVP(T), d) > md;
 
   // recurse if not leaf
   if (!isLeaf) {
@@ -219,18 +223,25 @@ int verifyTree(vptree *T, double *vp, node **stack, double md, int isInner,
 int main()
 {
 
-  int n=5000000;//data
-  int d=2;//dimensions
+  int n=1000000;//data
+  int d=10;//dimensions
 
   double  * dataArr = (double * ) malloc( n*d * sizeof(double) );
   double  * zeros   = (double * ) calloc( d   , sizeof(double) );
 
   foundInTree = (int *) calloc( n, sizeof(int) );
 
-  for (int i=0;i<n*d;i++)
-    dataArr[i]=rand()%100;
+  for (int i=0;i<n*d;i++){
+      dataArr[i]=(double) rand() / RAND_MAX;
+      //printf("dataArr[%d]: %lf\n", i,dataArr[i]);
+  }
 
+gettimeofday (&startwtime, NULL);
   vptree *root=buildvp(dataArr,n,d);
+  gettimeofday (&endwtime, NULL);
+
+  double exec_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6  + endwtime.tv_sec - startwtime.tv_sec);
+  printf("Time for calculation is : %lf,   \n", exec_time);
 
   node *stack = NULL;
 
@@ -239,12 +250,13 @@ int main()
 
   assert( stack == NULL );
 
-  for (int i = 0; i<n; i++)
+  for (int i = 0; i<n; i++) {
     if (!foundInTree[i]){
       foundAll = 0;
+      printf("to programa skaei %d\n", i);
       break;
     }
-
+  }
   printf("Tester validation: %s PROPERTIES | %s INDICES\n",
            STR_CORRECT_WRONG[isValid], STR_CORRECT_WRONG[foundAll]);
 

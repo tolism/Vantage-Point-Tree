@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include "quickselect.h"
+
+
+//
+// #define N 1000000
+// #define D 4
 
 
 typedef struct vptree {
@@ -28,7 +32,44 @@ double * generate_points(int n, int d) {
   return points;
 }
 
-double  distanceCalculation(double * X, double * Y,  int d) {
+
+
+
+
+
+
+double qselect(double *v, int len, int k)
+{
+	#	define SWAP(a, b) { tmp = tArray[a]; tArray[a] = tArray[b]; tArray[b] = tmp; }
+	int i, st;
+	double tmp;
+	double * tArray = (double * ) malloc(len * sizeof(double));
+	for(int i=0; i<len; i++){
+		tArray[i] = v[i];
+	}
+	for (st = i = 0; i < len - 1; i++) {
+		if (tArray[i] > tArray[len-1]) continue;
+		SWAP(i, st);
+		st++;
+	}
+	SWAP(len-1, st);
+	return k == st	? tArray[st]
+			:st > k	? qselect(tArray, st, k)
+				: qselect(tArray + st, len - st, k - st);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+double  distanceCalculation(double * X, double * Y, int n, int d) {
     double dist2 = 0;
     for (int i = 0; i < d; i++){
       dist2 += (X[i] - Y[i])*(X[i] - Y[i]);
@@ -81,11 +122,12 @@ void createNewX(double * Xinner , double * Xouter , double * X ,int *idx ,  int 
 }
 
 
-vptree * recBuild(double * X, int * idx, int n, int d) { //mporw enallaktika na valw edw to distance
+vptree * recBuild(double * X, int * idx, int n, int d) {
 
   vptree *p = (vptree * ) malloc(sizeof(vptree));
   int numberOfOuter = 0;
   int numberOfInner = 0;
+  double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
   double median;
   double * Xinner = NULL;
@@ -93,9 +135,10 @@ vptree * recBuild(double * X, int * idx, int n, int d) { //mporw enallaktika na 
   int * innerIdx = NULL;
   int * outerIdx = NULL;
 
+
     if (n == 1){
       p->vp=X;
-      p->idxVp=idx[n-1];
+      p->idxVp=idx[0];
       p->md=0;
       p->inner=NULL;
       p->outer=NULL;
@@ -103,32 +146,20 @@ vptree * recBuild(double * X, int * idx, int n, int d) { //mporw enallaktika na 
     }
     if(n == 0)
       return NULL;
-double  *distance = (double * ) calloc(n - 1, sizeof(double));
-setTree(p,X,idx,n,d);
+  setTree(p,X,idx,n,d);
+  //Calculating the distance
+  //TO BE parallel
 
-
-
-//Calculating the distance
-//TO BE parallel
-
-  for(int i =0; i < n-1; i++){
-    distance[i]=distanceCalculation((X + i * d),p->vp,d);
+  for(int i =0; i < n; i++){
+    distance[i]=distanceCalculation((X + i * d),p->vp,n,d);
   }
   // distance = distanceCalculation(X, p->vp, n, d);
   median = qselect(distance, n - 1, (int)((n - 2) / 2));
+
   p->md = median;
 
-  for(int i=0; i<n-1; i++){
-    if(distance[i]<=median){
-      numberOfInner++;
-    }
-    else{
-      numberOfOuter++;
-    }
-  }
-
-  //numberOfOuter = (int)((x->n - 1) / 2);
-  //numberOfInner = x->n - 1 - numberOfOuter;
+  numberOfOuter = (int)((n - 1) / 2);
+  numberOfInner = n - 1 - numberOfOuter;
 
   if (numberOfInner != 0) {
     Xinner = (double * ) malloc(numberOfInner * d * sizeof(double));
@@ -139,34 +170,32 @@ setTree(p,X,idx,n,d);
     outerIdx = (int *) malloc(numberOfOuter * sizeof(int));
   }
 
-createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance , median);
+  createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance , median);
 
 
-//   printf("NEW vptree NODE\n----------------\n\n");
-//   for (int i = 0; i < n; i++) {
-//     printf("POINT NO.%d: (", idx[i]);
-//     for (int j = 0; j < d; j++) {
-//       printf("%lf, ", *(X + i * d + j));
-//     }
-//     if (i < n - 1) {
-//       printf("), Distance from Vantage Point: %lf \n", distance[i]);
-//     } else {
-//       printf("), VANTAGE POINT\n");
-//     }
-//   }
-//   printf("MEDIAN : %lf \n\n", median);
-//   printf("THE VANTAGE POINT INDEX IS: %d\n",p->idxVp);
-//
-//
-// printf("Xinner ----> \n");
-//   printSubTree(Xinner , numberOfInner, d);
-// printf("Xouter ----> \n");
-//   printSubTree(Xouter , numberOfOuter , d);
+  // printf("NEW vptree NODE\n----------------\n\n");
+  // for (int i = 0; i < n; i++) {
+  //   printf("POINT NO.%d: (", idx[i]);
+  //   for (int j = 0; j < d; j++) {
+  //     printf("%lf, ", *(X + i * d + j));
+  //   }
+  //   if (i < n - 1) {
+  //     printf("), Distance from Vantage Point: %lf \n", distance[i]);
+  //   } else {
+  //     printf("), VANTAGE POINT\n");
+  //   }
+  // }
+  // printf("MEDIAN : %lf \n\n", median);
+  // printf("THE VANTAGE POINT INDEX IS: %d\n",p->idxVp);
+  //
+  //
+  // printSubTree(Xinner , numberOfInner, d);
+  // printSubTree(Xou
 
 
-//TO BE PARALLEL
+  //TO BE PARALLEL
   if (Xinner != NULL) {
-    p->inner = recBuild(Xinner, innerIdx, numberOfInner, d );
+    p->inner = recBuild(Xinner, innerIdx, numberOfInner, d);
   }
   if (Xouter != NULL) {
     p->outer = recBuild(Xouter, outerIdx, numberOfOuter, d);
@@ -179,11 +208,10 @@ createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance ,
 vptree * buildvp(double * X, int n, int d) {
 
   int * idx = (int *) malloc(n * sizeof(int));
-   for(int i=0; i<n; i++){
-     idx[i] = i;
-   }
-  //double  *distance = (double * ) calloc(n - 1, sizeof(double));
-   return recBuild(X, idx, n, d );
+  for(int i=0; i<n; i++){
+    idx[i] = i;
+  }
+  return recBuild(X, idx, n, d);
 }
 vptree * getInner(vptree * T) {
   return T->inner;

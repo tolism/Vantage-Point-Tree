@@ -2,14 +2,17 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include "quickselect.h"
+
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 
 
+#include <sys/time.h>
+struct timeval startwtime, endwtime;
 
-#define N 1000000
-#define D 4
+
+// #define N 1000000
+// #define D 4
 
 
 typedef struct vptree {
@@ -34,6 +37,53 @@ double * generate_points(int n, int d) {
 
   return points;
 }
+
+
+
+
+
+
+
+double qselect(double *v, int len, int k)
+{
+	#	define SWAP(a, b) { tmp = tArray[a]; tArray[a] = tArray[b]; tArray[b] = tmp; }
+	int i, st;
+	double tmp;
+	double * tArray = (double * ) malloc(len * sizeof(double));
+	for(int i=0; i<len; i++){
+		tArray[i] = v[i];
+	}
+	for (st = i = 0; i < len - 1; i++) {
+		if (tArray[i] > tArray[len-1]) continue;
+		SWAP(i, st);
+		st++;
+	}
+	SWAP(len-1, st);
+	return k == st	? tArray[st]
+			:st > k	? qselect(tArray, st, k)
+				: qselect(tArray + st, len - st, k - st);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 double  distanceCalculation(double * X, double * Y, int n, int d) {
     double dist2 = 0;
@@ -93,7 +143,7 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
   vptree *p = (vptree * ) malloc(sizeof(vptree));
   int numberOfOuter = 0;
   int numberOfInner = 0;
-
+  double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
   double median;
   double * Xinner = NULL;
@@ -112,28 +162,21 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
     if(n == 0)
       return NULL;
   setTree(p,X,idx,n,d);
-  double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
-
+//  gettimeofday (&startwtime, NULL);
   cilk_for (int i = 0; i < n-1; i++){
     distance[i]=distanceCalculation((X + i * d),p->vp,n,d);
   }
-  // distance = distanceCalculation(X, p->vp, n, d);
+//  gettimeofday (&endwtime, NULL);
+
+//  double exec_time = (double)((endwtime.tv_usec - startwtime.tv_usec)/1.0e6  + endwtime.tv_sec - startwtime.tv_sec);
+  //  printf("Time for calculation is : %lf,   \n", exec_time);
   median = qselect(distance, n - 1, (int)((n - 2) / 2));
 
   p->md = median;
 
-  for(int i=0; i<n-1; i++){
-    if(distance[i]<=median){
-      numberOfInner++;
-    }
-    else{
-      numberOfOuter++;
-    }
-  }
-
-  //numberOfOuter = (int)((n - 1) / 2);
-  //numberOfInner = n - 1 - numberOfOuter;
+  numberOfOuter = (int)((n - 1) / 2);
+  numberOfInner = n - 1 - numberOfOuter;
 
   if (numberOfInner != 0) {
     Xinner = (double * ) malloc(numberOfInner * d * sizeof(double));
@@ -144,7 +187,7 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
     outerIdx = (int *) malloc(numberOfOuter * sizeof(int));
   }
 
-createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance , median);
+  createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance , median);
 
   //
   // printf("NEW vptree NODE\n----------------\n\n");
@@ -171,8 +214,9 @@ createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance ,
 
 
     p->inner = cilk_spawn recBuild(Xinner, innerIdx, numberOfInner, d);
-    p->outer =  recBuild(Xouter, outerIdx, numberOfOuter, d);
+    p->outer = cilk_spawn recBuild(Xouter, outerIdx, numberOfOuter, d);
 
+  cilk_sync;
 
   return p;
 }

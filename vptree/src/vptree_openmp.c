@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include "quickselect.h"
+
 
 #include <omp.h>
 
-#define N 20
-#define D 2
+// #define N 20
+// #define D 2
 
 
 typedef struct vptree {
@@ -33,6 +33,35 @@ double * generate_points(int n, int d) {
 
   return points;
 }
+
+
+
+
+
+
+
+
+
+double qselect(double *v, int len, int k)
+{
+	#	define SWAP(a, b) { tmp = tArray[a]; tArray[a] = tArray[b]; tArray[b] = tmp; }
+	int i, st;
+	double tmp;
+	double * tArray = (double * ) malloc(len * sizeof(double));
+	for(int i=0; i<len; i++){
+		tArray[i] = v[i];
+	}
+	for (st = i = 0; i < len - 1; i++) {
+		if (tArray[i] > tArray[len-1]) continue;
+		SWAP(i, st);
+		st++;
+	}
+	SWAP(len-1, st);
+	return k == st	? tArray[st]
+			:st > k	? qselect(tArray, st, k)
+				: qselect(tArray + st, len - st, k - st);
+}
+
 
 double  distanceCalculation(double * X, double * vp, int n, int d) {
     double temp = 0;
@@ -90,7 +119,7 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
   vptree *p = (vptree * ) malloc(sizeof(vptree));
   int numberOfOuter = 0;
   int numberOfInner = 0;
-
+  double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
   double median;
   double * Xinner = NULL;
@@ -108,13 +137,12 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
   }
   if(n == 0)
     return NULL;
-double  *distance = (double * ) calloc(n - 1, sizeof(double));
+
   setTree(p,X,idx,n,d);
 
-#pragma omp parallel for  schedule(static,4) num_threads (2)
-//schedule(static,250000) num_threads(8)
-  for (int i = 0; i < n-1; i++){
-
+#pragma omp parallel for  schedule(static) num_threads (4)//schedule(static,250000) num_threads(8)
+  for (int i = 0; i < n-1; i++)
+  {
     distance[i]=distanceCalculation((X + i * d),p->vp,n,d);
   }
   // distance = distanceCalculation(X, p->vp, n, d);
@@ -122,17 +150,9 @@ double  *distance = (double * ) calloc(n - 1, sizeof(double));
 
   p->md = median;
 
-  for(int i=0; i<n-1; i++){
-    if(distance[i]<=median){
-      numberOfInner++;
-    }
-    else{
-      numberOfOuter++;
-    }
-  }
 
-  //numberOfOuter = (int)((n - 1) / 2);
-  //numberOfInner = n - 1 - numberOfOuter;
+  numberOfOuter = (int)((n - 1) / 2);
+  numberOfInner = n - 1 - numberOfOuter;
 
   if (numberOfInner != 0) {
     Xinner = (double * ) malloc(numberOfInner * d * sizeof(double));
@@ -171,14 +191,23 @@ double  *distance = (double * ) calloc(n - 1, sizeof(double));
 // p->inner =  recBuild(Xinner, innerIdx, numberOfInner, d);
 // p->outer =  recBuild(Xouter, outerIdx, numberOfOuter, d);
 // #pragma omp taskwait
+    #pragma omp parallel
+    {
+      #pragma omp sections
+      {
+        #pragma omp section
+        {
 
+            p->inner =  recBuild(Xinner, innerIdx, numberOfInner, d);
+        }
 
-  #pragma omp task shared(p)
-    p->inner =  recBuild(Xinner, innerIdx, numberOfInner, d);
+        #pragma omp section
+        {
+          p->outer =  recBuild(Xouter, outerIdx, numberOfOuter, d);
 
-  #pragma omp task shared(p)
-    p->outer =  recBuild(Xouter, outerIdx, numberOfOuter, d);
-
+        }
+      }
+    }
 
   return p;
 }
