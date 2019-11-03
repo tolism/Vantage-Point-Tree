@@ -1,35 +1,38 @@
+/**
+* FILE: vptree_pthreads.c
+* THMMY, 7th semester, Parallel and Distributed Systems: 1st assignment
+* Parallel implementation of vantage point tree
+* Authors:
+*   Moustaklis Apostolos, 9127, amoustakl@auth.gr
+*   Portokalidis Stavros, 9334, stavport@auth.gr
+* Compile command with :
+*   make vptree_pthreads
+* Run command example:
+*   ./vptree_pthreads
+* It will create the tree given N points with D dimensions
+* return a vptree struct and check it's validity
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 #include <pthread.h>
-//#include "quickselect.h"
-//subnodes
-#define MAX_THREADS 2
-//distance calculation
-#define NOTHREADS 4
-
 #include <sys/time.h>
-// #define N 1000000
-// #define D 2
+#include "vptree.h"
+
+#define MAX_THREADS 2
+#define NOTHREADS 4
 
 struct timeval startwtime, endwtime;
 
-typedef struct vptree {
-  double *vp; //vantage
-  double md; //median distance
-  int idxVp; //the index of the vantage point in the original set
-  struct vptree * inner;
-  struct vptree * outer;
-} vptree;
-
 typedef struct param {
-  int * counter;
-  double * data;
-  int * idx;
-  int n;
-  int d;
-  double *distances;
+  int * counter; //local node counter to associate max threads per level
+  double * data; // the data of the points
+  int * idx; // indexes of the points in the set
+  int n; // N number of points
+  int d; // D number of dimensions
+  double *distances; //the distances from the vantage point
 } param;
 
 int nodesMade = 0;
@@ -39,25 +42,9 @@ pthread_mutex_t mux;
 pthread_attr_t attr;
 volatile int activeThreads = 0;
 
-
-
 volatile int threadCounter = -1;
 pthread_mutex_t mux1;
 pthread_attr_t attr;
-
-double * generate_points(int n, int d) {
-
-  srand(time(NULL));
-
-  double * points = (double * ) malloc(n * d * sizeof(double));
-
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < d; j++) {
-      *(points + i * d + j) = (double) rand() / RAND_MAX;
-    }
-  }
-  return points;
-}
 
 
 double qselect(double *v, int len, int k)
@@ -79,7 +66,6 @@ double qselect(double *v, int len, int k)
 			:st > k	? qselect(tArray, st, k)
 				: qselect(tArray + st, len - st, k - st);
 }
-
 
 
 double  distanceCalculation(double * X, double * Y, int n, int d) {
