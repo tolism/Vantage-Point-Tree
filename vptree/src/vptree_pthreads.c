@@ -234,6 +234,7 @@ int getIDX(vptree * T) {
   return T->idxVp;
 }
 // ======= HELPER FUNCTIONS ======= //
+
 double qselect(double *v, int len, int k)
 {
 	#	define SWAP(a, b) { tmp = tArray[a]; tArray[a] = tArray[b]; tArray[b] = tmp; }
@@ -254,7 +255,6 @@ double qselect(double *v, int len, int k)
 				: qselect(tArray + st, len - st, k - st);
 }
 
-
 double  distanceCalculation(double * X, double * Y, int n, int d) {
     double dist2 = 0;
     for (int i = 0; i < d; i++){
@@ -262,6 +262,9 @@ double  distanceCalculation(double * X, double * Y, int n, int d) {
     }
     return sqrt(dist2);
 }
+
+//This functions devides  divides iterations into chunks that are approximately equal in size and it distributes 
+//one chunk to each thread.
 
 void * distanceCalculationPar(void *data) {
   param *localDist= (param *) data;
