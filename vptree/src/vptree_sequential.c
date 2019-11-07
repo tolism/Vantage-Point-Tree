@@ -33,14 +33,6 @@ void createNewX(double * Xinner , double * Xouter , double * X ,int *idx ,
 vptree * recBuild(double * X, int * idx, int n, int d) {
 
   vptree *p = (vptree * ) malloc(sizeof(vptree));
-  int numberOfOuter = 0; //Number of points in the outer set
-  int numberOfInner = 0; //NUmber of points in the inner set
-  double median; // The median of the vantage point
-  double * Xinner = NULL; //Inner subtree
-  double * Xouter = NULL; //Outer subtree
-  int * innerIdx = NULL; //Inner indexes
-  int * outerIdx = NULL; //Outer indexes
-
     if (n == 1){
       p->vp=X;
       p->idxVp=idx[0];
@@ -49,14 +41,23 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
       p->outer=NULL;
       return p;
     }
-    if(n == 0)
-      return NULL;
+    if(n == 0){
+      return NULL;}
 
-  double  *distance = (double * ) calloc(n - 1, sizeof(double));
+  int numberOfOuter = 0; //Number of points in the outer set
+  int numberOfInner = 0; //NUmber of points in the inner set
+  double median; // The median of the vantage point
+  double * Xinner = NULL; //Inner subtree
+  double * Xouter = NULL; //Outer subtree
+  int * innerIdx = NULL; //Inner indexes
+  int * outerIdx = NULL; //Outer indexes
+
+
+  double  *distance = (double * )malloc((n - 1) *sizeof(double));
   setTree(p,X,idx,n,d);
 
   //Calculating the distance from the vantage point
-  for(int i =0; i < n; i++){
+  for(int i =0; i < n-1; i++){
     distance[i]=distanceCalculation((X + i * d),p->vp,n,d);
   }
 
@@ -79,16 +80,16 @@ vptree * recBuild(double * X, int * idx, int n, int d) {
 
   createNewX( Xinner , Xouter , X , idx ,  innerIdx , outerIdx ,n , d , distance , median);
 
+  free(X);
+  free(idx);
+  free(distance);
 //Helper function to print everything
   //printFam(X, idx ,  Xinner , numberOfInner , Xouter , numberOfOuter ,  distance , n , d ,p->idxVp , median );
 
 
-  if (Xinner != NULL) {
     p->inner = recBuild(Xinner, innerIdx, numberOfInner, d);
-  }
-  if (Xouter != NULL) {
     p->outer = recBuild(Xouter, outerIdx, numberOfOuter, d);
-  }
+
 
   return p;
 }
